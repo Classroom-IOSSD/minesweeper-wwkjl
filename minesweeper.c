@@ -21,15 +21,47 @@
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
+#define BIT(x) (0x01 << (x))
+#define BITMASK_SET(x,y) ((x) |= (y))
+#define BITMASK_CLEAR(x,y) ((x) &= (~(y)))
+#define BITMASK_FLIP(x,y) ((x) ^= (y))
+#define BITMASK_CHECK(x,y) (((x) & (y)) ==(y))
 
 
 // global variables
+const unsigned int FLAG_MASK = BIT(4);
+const unsigned int UNCOV_MASK = BIT(5);
+const unsigned int MINE_MASK = BIT(6);
 // game table
 unsigned char table_array[MAX][MAX];
 // location of cursor
 int x=0, y=0;
 // flag: input mode = 0, flag mode = 1, check mode = 2
 int game_mode=0;
+
+//inline
+inline _Bool has_mine(unsigned int cell) {
+	return BITMASK_CHECK(cell, MINE_MASK);
+}
+inline _Bool is_uncovered(unsigned int cell) {
+	return BITMASK_CHECK(cell, UNCOV_MASK);
+}
+inline _Bool is_flagged(unsigned int cell) {
+	return BITMASK_CHECK(cell, FLAG_MASK);
+}
+inline void put_mine(unsigned int cell) {
+	BITMASK_SET(cell, MINE_MASK);
+}
+inline void uncover_mine(unsigned int cell) {
+	BITMASK_SET(cell, UNCOV_MASK);
+}
+inline void flag_mine(unsigned int cell) {
+	BITMASK_SET(cell, FLAG_MASK);
+}
+inline unsigned int num_mines(unsigned int cell) {
+	return cell-10;
+}
+
 
 /*This is a recursive function which uncovers blank cells while they are adjacent*/
 int uncover_blank_cell(int row, int col){
@@ -72,6 +104,7 @@ void print_table() {
 	int i, j, value;
 	for(i = 0; i < MAX; i++){
 		for(j = 0; j < MAX; j++){
+			
 			if(x == j && y == i) {
 				if(game_mode == 1) {
 					printf("|%sF%s",BMAG,KNRM);
@@ -83,17 +116,17 @@ void print_table() {
 				}		
 
 			}
-			value = table_array[i][j];
+			
 
-			if((value >= 0 && value <= 8) || value == 0 || value == 99)
+			if((value >= 0 && value <= 8) || value == 0 || value == 99)  //unchecked
 				printf("|X");
-			else if(value == 10) // clean area
-				printf("|%s%d%s",KCYN, value - 10,KNRM);
-			else if(value == 11) // the number of near mine is 1
-				printf("|%s%d%s",KYEL, value - 10,KNRM);
-			else if(value > 11 && value <= 18) // the number of near mine is greater than 1
-				printf("|%s%d%s",KRED, value - 10,KNRM);
-			else if((value >= 20 && value <= 28) || value == 100)
+			else if(num_mines(value) == 0) // clean area
+				printf("|%s%d%s",KCYN, num_mines(value),KNRM);
+			else if(num_mines(value) == 1) // the number of near mine is 1
+				printf("|%s%d%s",KYEL, num_mines(value),KNRM);
+			else if(num_mines(value) > 1 && num_mines(value) <= 8) // the number of near mine is greater than 1
+				printf("|%s%d%s",KRED, num_mines(value),KNRM);
+			else if(is_flagged(value))
 				printf("|%sF%s",KGRN,KNRM);
 			else
 				printf("ERROR"); // test purposes
@@ -145,8 +178,8 @@ new_game:
 		c = rand() % 10;
 		
 		// put mines
-		if(table_array[r][c] != 99){
-			table_array[r][c] = 99;
+		if(!has_mine(table_array[r][c])){
+			put_mine(table_array[r][c]);
 
 			// Get position of adjacent cells of current cell
 			rows[0] = r - 1;	columns[0] = c + 1;
